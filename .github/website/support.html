@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Support ~ palmshed sdk</title>
-    <meta name="description" content="Setup and troubleshooting for the palmshed SDK." />
+    <meta name="description" content="Setup, design decisions, and troubleshooting for the palmshed SDK." />
     <link rel="stylesheet" href="./styles.css" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
   </head>
@@ -23,37 +23,111 @@
     <div class="hero hero-short">
       <div class="hero-content">
         <h1>Support</h1>
-        <p>Setup notes and troubleshooting for the palmshed SDK. If something is missing, <a href="https://github.com/palmshed/sdk/issues">open an issue</a>.</p>
+        <p>How the SDK was built, what broke, and how to fix it. If something is missing, <a href="https://github.com/palmshed/sdk/issues">open an issue</a>.</p>
       </div>
     </div>
 
     <div class="page">
       <section>
-        <h2>Requirements</h2>
-        <ul>
-          <li>Python 3.10 or later</li>
-          <li>A Gemini API key from <a href="https://aistudio.google.com/apikey">Google AI Studio</a></li>
-        </ul>
-      </section>
-
-      <section>
         <h2>Install</h2>
         <pre><code>pip install palmshed-sdk</code></pre>
-        <p class="subtext">Optional: <code>pip install palmshed-sdk[redis]</code> for Redis caching, <code>palmshed-sdk[vertex]</code> for Vertex AI image generation.</p>
+        <p class="subtext">Optional: <code>pip install palmshed-sdk[redis]</code> for caching, <code>palmshed-sdk[vertex]</code> for Vertex AI image generation.</p>
       </section>
 
       <section>
-        <h2>Environment variables</h2>
-        <pre><code>GEMINI_API_KEY       Required. Your Gemini API key.
-REDIS_URL            Optional. Redis URL for caching.
-IMAGE_PROVIDER       Optional. gemini, vertex, or mock.
-IMAGE_MODEL          Optional. Image model name.
-GOOGLE_CLOUD_PROJECT Optional. GCP project for Vertex AI.
+        <h2>Environment</h2>
+        <pre><code>GEMINI_API_KEY        Required. Your Gemini API key.
+REDIS_URL             Optional. Redis URL for caching.
+IMAGE_PROVIDER        Optional. gemini, vertex, or mock.
+IMAGE_MODEL           Optional. Image model name.
+GOOGLE_CLOUD_PROJECT  Optional. GCP project for Vertex AI.
 GOOGLE_CLOUD_LOCATION Optional. GCP location for Vertex AI.</code></pre>
       </section>
 
       <section>
-        <h2>Common issues</h2>
+        <h2>Why this exists</h2>
+        <p>The SDK started inside the Alma project. It was a module called <code>palmshed_ai/sdk.py</code> that lived inside a Flask application. It had hardcoded model names, a Go service dependency, and was coupled to Flask's request lifecycle.</p>
+        <p>Other Palmshed products needed the same Gemini interface. Nuntius needed it for PR reviews. Future products would need it too. Extracting it into a standalone package was the right thing to do.</p>
+      </section>
+
+      <section>
+        <h2>The extraction</h2>
+        <p>Four files moved from <code>backend/palmshed_ai/</code> to <code>palmshed_sdk/</code>:</p>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>What it does</th>
+              <th>What changed</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-label="File"><code>sdk.py</code></td>
+              <td data-label="What it does">GeminiAI class with all API methods</td>
+              <td data-label="What changed">Removed Flask coupling. Model names via <code>ModelConfig</code>. Go service URL optional.</td>
+            </tr>
+            <tr>
+              <td data-label="File"><code>models.py</code></td>
+              <td data-label="What it does">Model name constants</td>
+              <td data-label="What changed">Became a <code>ModelConfig</code> dataclass. No more module-level constants.</td>
+            </tr>
+            <tr>
+              <td data-label="File"><code>image_models.py</code></td>
+              <td data-label="What it does">Image config, result, and status types</td>
+              <td data-label="What changed">Moved as-is. No changes needed.</td>
+            </tr>
+            <tr>
+              <td data-label="File"><code>image_providers.py</code></td>
+              <td data-label="What it does">Gemini, Vertex, and Mock image providers</td>
+              <td data-label="What changed">Moved as-is. Registry works the same.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>The error recovery problem</h2>
+        <p>The Gemini SDK (<code>google-genai</code>) raises <code>ValueError</code> for rate limits. This is wrong. A rate limit is not a programming error. It is an API error that should be handled gracefully.</p>
+        <p>The first version of <code>_is_recoverable_api_error</code> returned <code>False</code> for <code>ValueError</code>. So every 429 rate limit became a 500 error. The user saw "Internal Server Error" with no explanation.</p>
+        <p>The fix: return <code>True</code> for all exceptions. Then refine. <code>TypeError</code>, <code>NameError</code>, <code>AttributeError</code>, <code>KeyError</code>, <code>NotImplementedError</code> are programming errors. Everything else is an API error that can fall back to synthetic text.</p>
+        <pre><code>@staticmethod
+def _is_recoverable_api_error(e: Exception) -> bool:
+    if isinstance(e, (
+        TypeError, ValueError, NameError,
+        AttributeError, KeyError, NotImplementedError,
+    )):
+        return False
+    return True</code></pre>
+      </section>
+
+      <section>
+        <h2>The empty response problem</h2>
+        <p>The Gemini SDK returns a response object with a <code>text</code> property. Sometimes <code>text</code> is an empty string. The SDK does not raise. It returns successfully with nothing.</p>
+        <p>Every method in the SDK now checks for empty <code>response.text</code>. If empty, it returns a synthetic placeholder instead of failing silently. This is better than returning nothing, but worse than a real response. The user should check their API quota if this happens consistently.</p>
+        <pre><code># Before: only checks for None
+if response.text is None:
+    return "No response generated."
+
+# After: checks for None and empty string
+if not response.text:
+    return "Synthesized answer for ..."</code></pre>
+      </section>
+
+      <section>
+        <h2>Design decisions</h2>
+        <ul>
+          <li><strong>No framework</strong>, the SDK has no Flask, Django, or FastAPI dependency. It is pure Python with <code>google-genai</code> and <code>gTTS</code>.</li>
+          <li><strong>Configurable models</strong>, model names are passed via <code>ModelConfig</code>. Different products can use different models without changing the SDK.</li>
+          <li><strong>Optional Redis</strong>, caching works with Redis or in-memory dict. No hard dependency on infrastructure.</li>
+          <li><strong>Optional Go service</strong>, the <code>process_text</code> method calls a Go service if configured, falls back to Python regex otherwise.</li>
+          <li><strong>Image provider registry</strong>, new providers can be added with <code>ImageProviderRegistry.register()</code>. The SDK ships with Gemini, Vertex, and Mock.</li>
+          <li><strong>Mock key detection</strong>, if the API key starts with "mock" or "dummy", the SDK returns synthetic responses without calling the API. Useful for testing.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Troubleshooting</h2>
         <table class="table">
           <thead>
             <tr>
@@ -83,8 +157,52 @@ GOOGLE_CLOUD_LOCATION Optional. GCP location for Vertex AI.</code></pre>
               <td data-label="Cause">Model does not support image output</td>
               <td data-label="Resolution">Use <code>gemini-2.5-flash-image</code> or set <code>IMAGE_PROVIDER=mock</code> for testing.</td>
             </tr>
+            <tr>
+              <td data-label="Symptom">Research times out</td>
+              <td data-label="Cause">Deep Research agent took longer than 5 minutes</td>
+              <td data-label="Resolution">Check your API key permissions for the Deep Research agent.</td>
+            </tr>
+            <tr>
+              <td data-label="Symptom">Vertex AI image generation fails</td>
+              <td data-label="Cause"><code>google-cloud-aiplatform</code> not installed</td>
+              <td data-label="Resolution">Run <code>pip install palmshed-sdk[vertex]</code>.</td>
+            </tr>
           </tbody>
         </table>
+      </section>
+
+      <section>
+        <h2>Using with Alma</h2>
+        <pre><code>from palmshed_sdk import GeminiAI
+
+client = GeminiAI()  # reads GEMINI_API_KEY from env
+
+# Chat
+response = client.generate_chat([
+    {"role": "user", "content": "Hello"}
+])
+
+# Thinking
+result = client.generate_text_with_thinking("Explain this code")
+print(result["response"])
+print(result["thinking_summary"])</code></pre>
+      </section>
+
+      <section>
+        <h2>Using with nuntius</h2>
+        <pre><code>from palmshed_sdk import GeminiAI, ModelConfig
+
+models = ModelConfig(
+    text="gemini-2.5-flash",
+    thinking="gemini-2.5-flash",
+)
+
+client = GeminiAI(api_key=key, models=models)
+
+# Review a PR diff
+response = client.generate_chat([
+    {"role": "user", "content": f"Review this diff:\n{diff}"}
+])</code></pre>
       </section>
       <p class="feedback">Found something unexpected? <a href="https://github.com/palmshed/sdk/issues">Report an issue</a>.</p>
     </div>
