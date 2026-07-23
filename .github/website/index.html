@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>palmshed sdk</title>
+    <meta name="description" content="palmshed sdk ~ Gemini AI client for Python." />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  </head>
+  <body>
+    <nav>
+      <span class="nav-mark">palmshed</span>
+      <ul class="nav-links" id="nav">
+        <li><a href="./index.html" class="active">Home</a></li>
+        <li><a href="./app.html">SDK</a></li>
+        <li><a href="./support.html">Support</a></li>
+        <li><a href="https://github.com/palmshed/sdk">Source</a></li>
+      </ul>
+      <button class="mobile-menu-toggle" aria-label="Menu" aria-expanded="false">Menu</button>
+    </nav>
+
+    <div class="hero">
+      <div class="hero-content">
+        <div class="hero-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4"/>
+            <path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3"/>
+            <path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35"/>
+            <path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14"/>
+          </svg>
+          <span>palmshed sdk</span>
+        </div>
+        <h1>Gemini AI client for Python</h1>
+        <p>Text generation, chat, thinking, URL context, image generation, text-to-speech, and deep research. One import, clean interface, no framework coupling.</p>
+        <div class="hero-actions">
+          <a href="https://github.com/palmshed/sdk">GitHub</a>
+          <a href="https://pypi.org/project/palmshed-sdk/">PyPI</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="page">
+      <section>
+        <h2>Install</h2>
+        <pre><code>pip install palmshed-sdk</code></pre>
+      </section>
+
+      <section>
+        <h2>Quick start</h2>
+        <pre><code>from palmshed_sdk import GeminiAI
+
+client = GeminiAI(api_key="your-key")
+
+# Simple text generation
+response = client.generate_text("Write a haiku about Python")
+
+# Chat with history
+messages = [
+    {"role": "user", "content": "What is Flask?"},
+    {"role": "assistant", "content": "Flask is a lightweight web framework."},
+    {"role": "user", "content": "How do I install it?"},
+]
+response = client.generate_chat(messages)
+
+# Thinking mode
+result = client.generate_text_with_thinking("Explain quantum computing")
+print(result["response"])
+print(result["thinking_summary"])
+
+# Text-to-speech
+filepath = client.text_to_speech("Hello world")
+
+# Image generation
+result = client.generate_image("A sunset over the ocean")
+print(result.filepath)</code></pre>
+      </section>
+
+      <section>
+        <h2>What it does</h2>
+        <ul>
+          <li><strong>generate_text</strong>, simple text generation from a prompt.</li>
+          <li><strong>generate_chat</strong>, chat with full conversation history.</li>
+          <li><strong>generate_text_with_thinking</strong>, text with step-by-step reasoning.</li>
+          <li><strong>generate_chat_with_thinking</strong>, chat with thinking.</li>
+          <li><strong>generate_text_with_url_context</strong>, text with URL context.</li>
+          <li><strong>text_to_speech</strong>, convert text to MP3 via gTTS.</li>
+          <li><strong>generate_image</strong>, image generation via Gemini or Vertex.</li>
+          <li><strong>research_topic</strong>, deep research agent.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Resources</h2>
+        <ul>
+          <li><a href="https://github.com/palmshed/sdk">GitHub</a></li>
+          <li><a href="https://pypi.org/project/palmshed-sdk/">PyPI</a></li>
+        </ul>
+        <p class="feedback">Found something unexpected? <a href="https://github.com/palmshed/sdk/issues">Report an issue</a>.</p>
+      </section>
+    </div>
+
+    <footer>
+      <p>&copy; 2026 Palmshed</p>
+      <ul class="footer-links">
+        <li><a href="./contact.html">Contact</a></li>
+        <li><a href="./trademark.html">Trademark</a></li>
+        <li><a href="./privacy.html">Privacy</a></li>
+        <li><a href="./terms.html">Terms</a></li>
+      </ul>
+    </footer>
+
+    <script>
+      (function() {
+        var toggle = document.querySelector('.mobile-menu-toggle');
+        var nav = document.getElementById('nav');
+        if (!toggle || !nav) return;
+        function sync() { toggle.setAttribute('aria-expanded', nav.classList.contains('active')); }
+        toggle.addEventListener('click', function(e) {
+          e.stopPropagation();
+          nav.classList.toggle('active');
+          sync();
+        });
+        document.addEventListener('click', function(e) {
+          if (nav.classList.contains('active') && !nav.contains(e.target) && e.target !== toggle) {
+            nav.classList.remove('active');
+            sync();
+          }
+        });
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && nav.classList.contains('active')) {
+            nav.classList.remove('active');
+            sync();
+            toggle.focus();
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

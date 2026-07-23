@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SDK ~ palmshed</title>
+    <meta name="description" content="The palmshed SDK interface and design decisions." />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  </head>
+  <body>
+    <nav>
+      <span class="nav-mark">palmshed</span>
+      <ul class="nav-links" id="nav">
+        <li><a href="./index.html">Home</a></li>
+        <li><a href="./app.html" class="active">SDK</a></li>
+        <li><a href="./support.html">Support</a></li>
+        <li><a href="https://github.com/palmshed/sdk">Source</a></li>
+      </ul>
+      <button class="mobile-menu-toggle" aria-label="Menu" aria-expanded="false">Menu</button>
+    </nav>
+
+    <div class="hero hero-short">
+      <div class="hero-content">
+        <h1>SDK</h1>
+        <p>The interface and design decisions behind the Gemini AI client.</p>
+      </div>
+    </div>
+
+    <div class="page">
+      <section>
+        <h2>Architecture</h2>
+        <p>The SDK wraps the Google Gemini SDK (<code>google-genai</code>) with a clean Python interface. It handles API key management, caching, error recovery, and model selection.</p>
+        <p>It was extracted from the Alma project. The original code lived inside a Flask application with hardcoded model names, framework coupling, and a Go service dependency. The extraction removed all of that.</p>
+      </section>
+
+      <section>
+        <h2>Design decisions</h2>
+        <ul>
+          <li><strong>Configurable models</strong>, model names are passed via a <code>ModelConfig</code> dataclass, not hardcoded as module constants. Different products can use different models.</li>
+          <li><strong>Error recovery</strong>, <code>_is_recoverable_api_error</code> catches all exceptions except programming errors (<code>TypeError</code>, <code>NameError</code>, etc.). The SDK returns synthetic text for API failures instead of raising. Real bugs still propagate.</li>
+          <li><strong>Empty response fallback</strong>, every method checks for empty <code>response.text</code>. The Gemini SDK returns empty strings without raising. The SDK returns a placeholder instead of failing silently.</li>
+          <li><strong>Optional Redis</strong>, caching works with Redis or in-memory. No hard dependency on Redis.</li>
+          <li><strong>No framework</strong>, no Flask, no Django, no FastAPI. Just Python classes and functions.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Methods</h2>
+        <pre><code>generate_text(prompt)              # Simple text
+generate_chat(messages)            # Chat with history
+generate_text_with_thinking(p)     # Text + reasoning
+generate_chat_with_thinking(m)     # Chat + reasoning
+generate_text_with_url_context(p)  # Text + URL context
+generate_chat_with_url_context(m)  # Chat + URL context
+text_to_speech(text)               # Text to MP3
+generate_image(prompt)             # Image generation
+research_topic(topic)              # Deep research</code></pre>
+      </section>
+
+      <section>
+        <h2>Image providers</h2>
+        <p>Three providers via <code>ImageProviderRegistry</code>:</p>
+        <ul>
+          <li><strong>Gemini</strong>, default. Uses <code>gemini-2.5-flash-image</code>.</li>
+          <li><strong>Vertex</strong>, Google Cloud Vertex AI. Requires <code>google-cloud-aiplatform</code>.</li>
+          <li><strong>Mock</strong>, generates a red 64x64 PNG for testing.</li>
+        </ul>
+      </section>
+      <p class="feedback">Found something unexpected? <a href="https://github.com/palmshed/sdk/issues">Report an issue</a>.</p>
+    </div>
+
+    <footer>
+      <p>&copy; 2026 Palmshed</p>
+      <ul class="footer-links">
+        <li><a href="./contact.html">Contact</a></li>
+        <li><a href="./trademark.html">Trademark</a></li>
+        <li><a href="./privacy.html">Privacy</a></li>
+        <li><a href="./terms.html">Terms</a></li>
+      </ul>
+    </footer>
+
+    <script>
+      (function() {
+        var toggle = document.querySelector('.mobile-menu-toggle');
+        var nav = document.getElementById('nav');
+        if (!toggle || !nav) return;
+        function sync() { toggle.setAttribute('aria-expanded', nav.classList.contains('active')); }
+        toggle.addEventListener('click', function(e) {
+          e.stopPropagation();
+          nav.classList.toggle('active');
+          sync();
+        });
+        document.addEventListener('click', function(e) {
+          if (nav.classList.contains('active') && !nav.contains(e.target) && e.target !== toggle) {
+            nav.classList.remove('active');
+            sync();
+          }
+        });
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && nav.classList.contains('active')) {
+            nav.classList.remove('active');
+            sync();
+            toggle.focus();
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>
