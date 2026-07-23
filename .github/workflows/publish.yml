@@ -23,7 +23,7 @@ jobs:
         uses: astral-sh/setup-uv@v6
 
       - name: Build package
-        run: uv run hatchling build
+        run: uvx hatchling build
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
